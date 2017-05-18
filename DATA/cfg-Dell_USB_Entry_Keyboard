@@ -1,0 +1,7 @@
+# Dell
+# USB Entry Keyboard
+export MANUFACTURER="Dell"
+export SERIAL="0"
+export PRODUCT="Dell USB Entry Keyboard"
+export IDVENDOR="0x413c"
+export IDPRODUCT="0x2107"

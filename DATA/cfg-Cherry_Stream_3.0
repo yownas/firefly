@@ -1,0 +1,7 @@
+# Cherry
+# Stream 3.0
+export MANUFACTURER="cherry"
+export SERIAL="0"
+export PRODUCT="USB Keyboard"
+export IDVENDOR="0x046a"
+export IDPRODUCT="0x0023"

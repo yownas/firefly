@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# variables and strings
+CWD=`dirname $0`
+CFGFS="/sys/kernel/config"
+[ -z "$MANUFACTURER" ] && MANUFACTURER="Yownas"
+[ -z "$SERIAL" ] && SERIAL=$(ifconfig -a | grep HWaddr | tail -1 | sed 's/^.*HWaddr \([^ ]*\) *$/\1/')
+[ -z "$IDVENDOR" ] && IDVENDOR="0x0525"
+[ -z "$IDPRODUCT" ] && IDPRODUCT="0xa4ac"
+[ -z "$PRODUCT" ] && PRODUCT="Firefly keyboard"
+[ -z "$CONFIG_NAME" ] && CONFIG_NAME="Configuration 1"
+MAX_POWER_MA=120
+PROTOCOL=1
+SUBCLASS=1
+REPORT_LENGTH=8
+DESCRIPTOR=${CWD}/DATA/kybd-descriptor.bin
+
+#modprobe libcomposite
+
+DEVICE=${CFGFS}/usb_gadget/firefly
+mkdir $DEVICE
+mkdir ${DEVICE}/configs/c.1
+mkdir ${DEVICE}/functions/hid.usb0
+echo $PROTOCOL > ${DEVICE}/functions/hid.usb0/protocol
+echo $SUBCLASS > ${DEVICE}/functions/hid.usb0/subclass
+echo $REPORT_LENGTH > ${DEVICE}/functions/hid.usb0/report_length
+cat $DESCRIPTOR > ${DEVICE}/functions/hid.usb0/report_desc
+mkdir ${DEVICE}/strings/0x409
+mkdir ${DEVICE}/configs/c.1/strings/0x409
+echo $IDPRODUCT > ${DEVICE}/idProduct
+echo $IDVENDOR > ${DEVICE}/idVendor
+[ "$SERIAL" = "0" ] || echo $SERIAL > ${DEVICE}/strings/0x409/serialnumber
+[ "$MANUFACTURER" = "0" ] || echo $MANUFACTURER > ${DEVICE}/strings/0x409/manufacturer
+[ "$PRODUCT" = "0" ] || echo $PRODUCT > ${DEVICE}/strings/0x409/product
+echo $CONFIG_NAME > ${DEVICE}/configs/c.1/strings/0x409/configuration
+echo $MAX_POWER_MA > ${DEVICE}/configs/c.1/MaxPower
+ln -s ${DEVICE}/functions/hid.usb0 ${DEVICE}/configs/c.1
+
+# binding
+ls /sys/class/udc > ${DEVICE}/UDC

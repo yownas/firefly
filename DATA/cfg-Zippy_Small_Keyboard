@@ -1,0 +1,7 @@
+# Zippy Technology Corp.
+# Sanwa Supply Inc. Small Keyboard
+export MANUFACTURER="0"
+export SERIAL="0"
+export PRODUCT="USB Keyboard"
+export IDVENDOR="0x099a"
+export IDPRODUCT="0x0638"
