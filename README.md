@@ -7,16 +7,19 @@ Firefly is a proof-of-concept tool to exfiltrate data from a computer by communi
 Well, not really, it may not actually communicate with light but it acts like a usb keyboard and use the state of the caps-, num- and scroll-lock leds to get signals sent back to the device. It is not fast but what you get is a remote shell over wifi to a workstation that may not have network or that have blocked any other usb-devices than mice and keyboards.
 
 While this attack has been explored before...
-````
-https://techblog.vsza.hu/posts/Leaking_data_using_DIY_USB_HID_device.html
-````
+
+https://techblog.vsza.hu/posts/Leaking_data_using_DIY_USB_HID_device.htm
+
 ... and using devices to act as keyboards has been around for a while...
-````
+
 https://www.arduino.cc/en/Reference/MouseKeyboard
+
 https://hakshop.com/products/usb-rubber-ducky-deluxe
+
 https://hakshop.com/products/bash-bunny
+
 https://www.youtube.com/watch?v=FPBzOaLbWhM
-````
+
 ...I never seen any tool using the keyboard leds to get an interactive shell on the victim... So I made one.
 
 # Installation
