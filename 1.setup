@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ -e /dev/hidg0 ] 
+then
+  echo "HID-gadget already exists."
+  exit 1
+fi
+
 # variables and strings
 CWD=`dirname $0`
 CFGFS="/sys/kernel/config"
@@ -17,24 +23,34 @@ DESCRIPTOR=${CWD}/DATA/kybd-descriptor.bin
 
 #modprobe libcomposite
 
+echo "Creating gadget."
+
 DEVICE=${CFGFS}/usb_gadget/firefly
 mkdir $DEVICE
 mkdir ${DEVICE}/configs/c.1
 mkdir ${DEVICE}/functions/hid.usb0
+echo "   \_/"
 echo $PROTOCOL > ${DEVICE}/functions/hid.usb0/protocol
 echo $SUBCLASS > ${DEVICE}/functions/hid.usb0/subclass
 echo $REPORT_LENGTH > ${DEVICE}/functions/hid.usb0/report_length
+echo "  _O_O_"
 cat $DESCRIPTOR > ${DEVICE}/functions/hid.usb0/report_desc
+echo " /_|^|_\\"
 mkdir ${DEVICE}/strings/0x409
 mkdir ${DEVICE}/configs/c.1/strings/0x409
+echo " \_|^|_/"
 echo $IDPRODUCT > ${DEVICE}/idProduct
 echo $IDVENDOR > ${DEVICE}/idVendor
+echo "   \^/"
 [ "$SERIAL" = "0" ] || echo $SERIAL > ${DEVICE}/strings/0x409/serialnumber
 [ "$MANUFACTURER" = "0" ] || echo $MANUFACTURER > ${DEVICE}/strings/0x409/manufacturer
 [ "$PRODUCT" = "0" ] || echo $PRODUCT > ${DEVICE}/strings/0x409/product
+echo "    -"
 echo $CONFIG_NAME > ${DEVICE}/configs/c.1/strings/0x409/configuration
 echo $MAX_POWER_MA > ${DEVICE}/configs/c.1/MaxPower
 ln -s ${DEVICE}/functions/hid.usb0 ${DEVICE}/configs/c.1
 
 # binding
 ls /sys/class/udc > ${DEVICE}/UDC
+
+echo "Done. :)"

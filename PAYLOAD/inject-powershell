@@ -1,0 +1,68 @@
+#!/usr/bin/python
+
+import os
+import pty
+import select
+import sys
+import termios
+import time
+import tty
+
+dev_w = open("/dev/hidg0", "wb")
+
+map_plain = [
+  0,0,0,0,'a','b','c','d','e','f','g','h','i','j','k','l',
+  'm','n','o','p','q','r','s','t','u','v','w','x','y','z',
+  '1','2','3','4','5','6','7','8','9','0','\n',0,0,'\t',' ','-','=','[',
+  ']','\\',0,';','\'','`',',','.','/'
+  ]
+map_shift = [
+  0,0,0,0,'A','B','C','D','E','F','G','H','I','J','K','L',
+  'M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+  '!','@','#','$','%','^','&','*','(',')',0,0,0,0,0,'_','+','{',
+  '}','|',0,':','"','~','<','>','?'
+  ]
+
+# Get a powershell
+
+# gui + r
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x08, 0x00, 0x15, 0x00, 0x00, 0x00, 0x00, 0x00))
+dev_w.flush()
+time.sleep(0.5)
+
+# "powers"
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x00, 0x00, 0x13, 0x12, 0x1a, 0x08, 0x15, 0x16))
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+# "helln"
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x00, 0x00, 0x0b, 0x08, 0x0f, 0x0f, 0x28, 0x00))
+dev_w.write("%c%c%c%c%c%c%c%c" % (0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+dev_w.flush()
+# Wait a sec to make sure gnome-terminal has time to start
+time.sleep(2.5)
+
+while 1:
+  # Read a byte from stdin if there is one.
+  r,w,e = select.select([ sys.stdin ], [], [], 0)
+  if sys.stdin in r:
+    c = os.read(sys.stdin.fileno(), 1)
+    if c:
+      if c in map_plain:
+        #print "plain index: %d" % map_plain.index(c)
+        #print ("%d %d %d %d %d %d %d %d" % (0, 0, map_plain.index(c), 0, 0, 0, 0, 0))
+        dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, map_plain.index(c), 0, 0, 0, 0, 0))
+        dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+        dev_w.flush()
+      elif c in map_shift:
+        #print "shift index: %d" % map_shift.index(c)
+        #print ("%d %d %d %d %d %d %d %d" % (2, 0, map_shift.index(c), 0, 0, 0, 0, 0))
+        dev_w.write("%c%c%c%c%c%c%c%c" % (2, 0, map_shift.index(c), 0, 0, 0, 0, 0))
+        dev_w.write("%c%c%c%c%c%c%c%c" % (0, 0, 0, 0, 0, 0, 0, 0))
+        dev_w.flush()
+      else:
+        print "ERROR NOT FOUND %s" % c
+      time.sleep(0.001)
+    else:
+      dev_w.close()
+      break
+

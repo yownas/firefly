@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# Usage: 2.payload [<payload argument>]
+
+# Default payload
+[ -z "$PAYLOAD" ] && PAYLOAD=linux/gnome-terminal/python
+
+ARG=$1
+CWD=`dirname $0`
+export PLPATH=${CWD}/PAYLOAD
+
+# Do we point to a payload?
+if [ -f "${PLPATH}/${PAYLOAD}/payload" -a -f "${PLPATH}/${PAYLOAD}/payload.script" ]
+then
+  ${PLPATH}/${PAYLOAD}/payload.script ${ARG} &
+  PID=$!
+else
+  echo "Can't find payload/script for ${PAYLOAD}"
+  exit 1
+fi
+
+
+cat <<EOF
+ 
+   \_/
+  _O_O_
+ /_|^|_\\
+ \_|^|_/
+   \^/
+    -
+Injecting payload:
+EOF
+
+/bin/echo -e '\033[?25l\033[7A'
+while [ -d /proc/$PID ]
+do
+  cat /dev/urandom  | tr -dc 'oOX-' | dd bs=1 count=2 2>/dev/null | sed 's/\(.\)\(.\)/  _\1_\2_/'
+  /bin/echo -e '\033[1A'
+  sleep 0.2
+done
+
+/bin/echo -e '\033[4B\033[?25h'
+echo "Injecting payload: Done."

